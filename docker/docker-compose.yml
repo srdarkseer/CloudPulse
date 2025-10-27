@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # CloudPulse Agent
+  cloudpulse-agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    image: cloudpulse-agent:latest
+    container_name: cloudpulse-agent
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ID=node-1
+      - PORT=8080
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+    networks:
+      - cloudpulse-network
+
+  # CloudPulse ML Service
+  cloudpulse-ml:
+    build:
+      context: ./ml-models
+      dockerfile: Dockerfile
+    image: cloudpulse-ml:latest
+    container_name: cloudpulse-ml
+    ports:
+      - "5000:5000"
+    environment:
+      - AGENT_ENDPOINTS=http://cloudpulse-agent:8080
+      - MODEL_SAVE_PATH=/app/models
+      - FORECAST_INTERVAL_MINUTES=5
+    volumes:
+      - ml-models:/app/models
+    restart: unless-stopped
+    depends_on:
+      - cloudpulse-agent
+    networks:
+      - cloudpulse-network
+
+  # CloudPulse Dashboard
+  cloudpulse-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    image: cloudpulse-dashboard:latest
+    container_name: cloudpulse-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - AGENT_ENDPOINTS=http://cloudpulse-agent:8080
+      - ML_SERVICE_URL=http://cloudpulse-ml:5000
+      - CORS_ORIGIN=http://localhost:3000
+      - NODE_ENV=production
+    volumes:
+      - dashboard-logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - cloudpulse-agent
+      - cloudpulse-ml
+    networks:
+      - cloudpulse-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: cloudpulse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - cloudpulse-network
+
+volumes:
+  ml-models:
+  dashboard-logs:
+  redis-data:
+
+networks:
+  cloudpulse-network:
+    driver: bridge

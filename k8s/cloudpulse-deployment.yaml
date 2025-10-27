@@ -1,0 +1,270 @@
+# CloudPulse Agent DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudpulse-agent
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-agent
+spec:
+  selector:
+    matchLabels:
+      app: cloudpulse-agent
+  template:
+    metadata:
+      labels:
+        app: cloudpulse-agent
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: cloudpulse-agent
+        image: cloudpulse-agent:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+        - name: rootfs
+          mountPath: /rootfs
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: rootfs
+        hostPath:
+          path: /
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+---
+# CloudPulse Agent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudpulse-agent-service
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-agent
+spec:
+  selector:
+    app: cloudpulse-agent
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: metrics
+  type: ClusterIP
+---
+# CloudPulse ML Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudpulse-ml
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-ml
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudpulse-ml
+  template:
+    metadata:
+      labels:
+        app: cloudpulse-ml
+    spec:
+      containers:
+      - name: cloudpulse-ml
+        image: cloudpulse-ml:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: api
+        env:
+        - name: AGENT_ENDPOINTS
+          value: "http://cloudpulse-agent-service:8080"
+        - name: MODEL_SAVE_PATH
+          value: "/app/models"
+        - name: FORECAST_INTERVAL_MINUTES
+          value: "5"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: models
+          mountPath: /app/models
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: cloudpulse-models-pvc
+---
+# CloudPulse ML Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudpulse-ml-service
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-ml
+spec:
+  selector:
+    app: cloudpulse-ml
+  ports:
+  - port: 5000
+    targetPort: 5000
+    name: api
+  type: ClusterIP
+---
+# CloudPulse Dashboard Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudpulse-dashboard
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudpulse-dashboard
+  template:
+    metadata:
+      labels:
+        app: cloudpulse-dashboard
+    spec:
+      containers:
+      - name: cloudpulse-dashboard
+        image: cloudpulse-dashboard:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: web
+        env:
+        - name: PORT
+          value: "3000"
+        - name: AGENT_ENDPOINTS
+          value: "http://cloudpulse-agent-service:8080"
+        - name: ML_SERVICE_URL
+          value: "http://cloudpulse-ml-service:5000"
+        - name: CORS_ORIGIN
+          value: "*"
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: logs
+        emptyDir: {}
+---
+# CloudPulse Dashboard Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudpulse-dashboard-service
+  namespace: cloudpulse
+  labels:
+    app: cloudpulse-dashboard
+spec:
+  selector:
+    app: cloudpulse-dashboard
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: web
+  type: LoadBalancer
+---
+# Persistent Volume Claim for ML Models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cloudpulse-models-pvc
+  namespace: cloudpulse
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudpulse
+  labels:
+    name: cloudpulse

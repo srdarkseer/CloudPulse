@@ -1,0 +1,273 @@
+# CloudPulse Monitoring Stack
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudpulse-monitoring-config
+  namespace: cloudpulse
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    rule_files:
+      - "cloudpulse_rules.yml"
+    
+    scrape_configs:
+      - job_name: 'cloudpulse-agents'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - cloudpulse
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: cloudpulse-agent-service
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: metrics
+    
+      - job_name: 'cloudpulse-ml'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - cloudpulse
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: cloudpulse-ml-service
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: api
+    
+      - job_name: 'cloudpulse-dashboard'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - cloudpulse
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_name]
+            action: keep
+            regex: cloudpulse-dashboard-service
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: web
+  
+  cloudpulse_rules.yml: |
+    groups:
+      - name: cloudpulse.rules
+        rules:
+          - alert: HighCPUUsage
+            expr: cloudpulse_cpu_usage_percent > 80
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage detected"
+              description: "CPU usage is above 80% for more than 2 minutes"
+          
+          - alert: CriticalCPUUsage
+            expr: cloudpulse_cpu_usage_percent > 95
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Critical CPU usage detected"
+              description: "CPU usage is above 95% for more than 1 minute"
+          
+          - alert: HighMemoryUsage
+            expr: cloudpulse_memory_usage_percent > 85
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage detected"
+              description: "Memory usage is above 85% for more than 2 minutes"
+          
+          - alert: CriticalMemoryUsage
+            expr: cloudpulse_memory_usage_percent > 95
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Critical memory usage detected"
+              description: "Memory usage is above 95% for more than 1 minute"
+          
+          - alert: NodeDown
+            expr: up{job="cloudpulse-agents"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "CloudPulse agent is down"
+              description: "CloudPulse agent has been down for more than 1 minute"
+          
+          - alert: MLServiceDown
+            expr: up{job="cloudpulse-ml"} == 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "CloudPulse ML service is down"
+              description: "CloudPulse ML service has been down for more than 2 minutes"
+          
+          - alert: DashboardDown
+            expr: up{job="cloudpulse-dashboard"} == 0
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "CloudPulse dashboard is down"
+              description: "CloudPulse dashboard has been down for more than 2 minutes"
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: cloudpulse
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+          name: web
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus/'
+          - '--web.console.libraries=/etc/prometheus/console_libraries'
+          - '--web.console.templates=/etc/prometheus/consoles'
+          - '--storage.tsdb.retention.time=200h'
+          - '--web.enable-lifecycle'
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus/
+        - name: prometheus-storage
+          mountPath: /prometheus/
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: cloudpulse-monitoring-config
+      - name: prometheus-storage
+        emptyDir: {}
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: cloudpulse
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: web
+  type: LoadBalancer
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: cloudpulse
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+          name: web
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: "admin"
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-kubernetes-app"
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/datasources
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: grafana-storage
+        emptyDir: {}
+      - name: grafana-config
+        configMap:
+          name: grafana-datasources
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  namespace: cloudpulse
+  labels:
+    app: grafana
+spec:
+  selector:
+    app: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: web
+  type: LoadBalancer
+---
+# Grafana Data Sources ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: cloudpulse
+data:
+  datasources.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-service:9090
+        isDefault: true
+        editable: true
