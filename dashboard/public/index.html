@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudPulse Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-healthy { background: #27ae60; }
+        .status-warning { background: #f39c12; }
+        .status-critical { background: #e74c3c; }
+        .status-unknown { background: #95a5a6; }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .alert-critical {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>CloudPulse Dashboard</h1>
+    </div>
+    
+    <div class="container">
+        <div id="loading" class="loading">
+            <p>Loading dashboard...</p>
+        </div>
+        
+        <div id="dashboard" style="display: none;">
+            <!-- System Overview -->
+            <div class="grid">
+                <div class="card">
+                    <h3>System Overview</h3>
+                    <div class="metric">
+                        <span class="metric-label">Total Nodes</span>
+                        <span class="metric-value" id="totalNodes">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Healthy Nodes</span>
+                        <span class="metric-value" id="healthyNodes">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Active Alerts</span>
+                        <span class="metric-value" id="activeAlerts">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Last Update</span>
+                        <span class="metric-value" id="lastUpdate">-</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Resource Usage</h3>
+                    <div class="metric">
+                        <span class="metric-label">Avg CPU Usage</span>
+                        <span class="metric-value" id="avgCpu">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Avg Memory Usage</span>
+                        <span class="metric-value" id="avgMemory">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Network I/O</span>
+                        <span class="metric-value" id="networkIo">-</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Forecasting</h3>
+                    <div class="metric">
+                        <span class="metric-label">Models Active</span>
+                        <span class="metric-value" id="modelsActive">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Next Forecast</span>
+                        <span class="metric-value" id="nextForecast">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Anomalies Detected</span>
+                        <span class="metric-value" id="anomalies">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="grid">
+                <div class="card">
+                    <h3>CPU Usage Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>Memory Usage Trend</h3>
+                    <div class="chart-container">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Alerts -->
+            <div class="card">
+                <h3>Active Alerts</h3>
+                <div id="alertsContainer">
+                    <p>No active alerts</p>
+                </div>
+            </div>
+            
+            <!-- Node Status -->
+            <div class="card">
+                <h3>Node Status</h3>
+                <div id="nodesContainer">
+                    <p>Loading node status...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        class CloudPulseDashboard {
+            constructor() {
+                this.socket = io();
+                this.charts = {};
+                this.data = {
+                    metrics: [],
+                    alerts: [],
+                    forecasts: {},
+                    nodes: []
+                };
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupSocketListeners();
+                this.setupCharts();
+                this.loadInitialData();
+            }
+            
+            setupSocketListeners() {
+                this.socket.on('connect', () => {
+                    console.log('Connected to CloudPulse dashboard');
+                });
+                
+                this.socket.on('initialData', (data) => {
+                    this.data = { ...this.data, ...data };
+                    this.updateDashboard();
+                });
+                
+                this.socket.on('metricsUpdate', (metrics) => {
+                    this.data.metrics = metrics;
+                    this.updateMetrics();
+                    this.updateCharts();
+                });
+                
+                this.socket.on('forecastUpdate', (forecasts) => {
+                    this.data.forecasts = forecasts;
+                    this.updateForecasts();
+                });
+                
+                this.socket.on('newAlerts', (alerts) => {
+                    this.data.alerts = [...this.data.alerts, ...alerts];
+                    this.updateAlerts();
+                });
+                
+                this.socket.on('alertAcknowledged', (alert) => {
+                    this.updateAlertStatus(alert.id, 'acknowledged');
+                });
+                
+                this.socket.on('healthUpdate', (health) => {
+                    this.updateHealthStatus(health);
+                });
+            }
+            
+            setupCharts() {
+                const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+                const memoryCtx = document.getElementById('memoryChart').getContext('2d');
+                
+                this.charts.cpu = new Chart(cpuCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'CPU Usage %',
+                            data: [],
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                
+                this.charts.memory = new Chart(memoryCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Memory Usage %',
+                            data: [],
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+            
+            async loadInitialData() {
+                try {
+                    const [metrics, alerts, forecasts, nodes] = await Promise.all([
+                        fetch('/api/metrics').then(r => r.json()),
+                        fetch('/api/alerts').then(r => r.json()),
+                        fetch('/api/forecasts').then(r => r.json()),
+                        fetch('/api/nodes').then(r => r.json())
+                    ]);
+                    
+                    this.data = { metrics, alerts, forecasts, nodes };
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error('Failed to load initial data:', error);
+                    this.showError('Failed to load dashboard data');
+                }
+            }
+            
+            updateDashboard() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+                this.updateMetrics();
+                this.updateAlerts();
+                this.updateNodes();
+                this.updateCharts();
+            }
+            
+            updateMetrics() {
+                if (this.data.metrics.length === 0) return;
+                
+                const avgCpu = this.data.metrics.reduce((sum, m) => sum + (m.cpu?.usage_percent || 0), 0) / this.data.metrics.length;
+                const avgMemory = this.data.metrics.reduce((sum, m) => sum + (m.memory?.used_percent || 0), 0) / this.data.metrics.length;
+                const totalNetworkIo = this.data.metrics.reduce((sum, m) => sum + (m.network?.bytes_sent || 0) + (m.network?.bytes_recv || 0), 0);
+                
+                document.getElementById('avgCpu').textContent = `${avgCpu.toFixed(1)}%`;
+                document.getElementById('avgMemory').textContent = `${avgMemory.toFixed(1)}%`;
+                document.getElementById('networkIo').textContent = this.formatBytes(totalNetworkIo);
+            }
+            
+            updateAlerts() {
+                const container = document.getElementById('alertsContainer');
+                const activeAlerts = this.data.alerts.filter(a => !a.resolved);
+                
+                document.getElementById('activeAlerts').textContent = activeAlerts.length;
+                
+                if (activeAlerts.length === 0) {
+                    container.innerHTML = '<p>No active alerts</p>';
+                    return;
+                }
+                
+                container.innerHTML = activeAlerts.map(alert => `
+                    <div class="alert alert-${alert.severity}">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>${alert.name}</strong> - ${alert.message}
+                                <br>
+                                <small>Node: ${alert.nodeId} | ${new Date(alert.timestamp).toLocaleString()}</small>
+                            </div>
+                            <button class="btn" onclick="dashboard.acknowledgeAlert('${alert.id}')">
+                                Acknowledge
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updateNodes() {
+                const container = document.getElementById('nodesContainer');
+                
+                if (this.data.nodes.length === 0) {
+                    container.innerHTML = '<p>No nodes available</p>';
+                    return;
+                }
+                
+                document.getElementById('totalNodes').textContent = this.data.nodes.length;
+                const healthyNodes = this.data.nodes.filter(n => n.status === 'healthy').length;
+                document.getElementById('healthyNodes').textContent = healthyNodes;
+                
+                container.innerHTML = this.data.nodes.map(node => `
+                    <div class="metric">
+                        <span class="metric-label">
+                            <span class="status-indicator status-${node.status}"></span>
+                            ${node.nodeId}
+                        </span>
+                        <span class="metric-value">${node.status}</span>
+                    </div>
+                `).join('');
+            }
+            
+            updateCharts() {
+                if (this.data.metrics.length === 0) return;
+                
+                const timestamps = this.data.metrics.map(m => new Date(m.timestamp).toLocaleTimeString());
+                const cpuData = this.data.metrics.map(m => m.cpu?.usage_percent || 0);
+                const memoryData = this.data.metrics.map(m => m.memory?.used_percent || 0);
+                
+                this.charts.cpu.data.labels = timestamps;
+                this.charts.cpu.data.datasets[0].data = cpuData;
+                this.charts.cpu.update();
+                
+                this.charts.memory.data.labels = timestamps;
+                this.charts.memory.data.datasets[0].data = memoryData;
+                this.charts.memory.update();
+            }
+            
+            updateForecasts() {
+                // Update forecast-related UI elements
+                document.getElementById('modelsActive').textContent = Object.keys(this.data.forecasts).length;
+            }
+            
+            async acknowledgeAlert(alertId) {
+                try {
+                    await fetch(`/api/alerts/${alertId}/acknowledge`, { method: 'POST' });
+                    this.updateAlertStatus(alertId, 'acknowledged');
+                } catch (error) {
+                    console.error('Failed to acknowledge alert:', error);
+                }
+            }
+            
+            updateAlertStatus(alertId, status) {
+                const alert = this.data.alerts.find(a => a.id === alertId);
+                if (alert) {
+                    alert[status] = true;
+                    this.updateAlerts();
+                }
+            }
+            
+            updateHealthStatus(health) {
+                document.getElementById('lastUpdate').textContent = new Date(health.timestamp).toLocaleString();
+            }
+            
+            formatBytes(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            showError(message) {
+                const container = document.querySelector('.container');
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                container.insertBefore(errorDiv, container.firstChild);
+            }
+        }
+        
+        // Initialize dashboard when page loads
+        const dashboard = new CloudPulseDashboard();
+    </script>
+</body>
+</html>
