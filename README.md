@@ -1,6 +1,58 @@
-# CloudPulse — Server Resource Forecasting & Auto-Scaler
+# CloudPulse — Intelligent Server Resource Forecasting & Auto-Scaler
 
-CloudPulse is an intelligent server resource forecasting and auto-scaling system that predicts future CPU/memory/network load using machine learning models and automatically scales container clusters (Docker/Kubernetes) accordingly.
+[![GitHub stars](https://img.shields.io/github/stars/srdarkseer/CloudPulse?style=social)](https://github.com/srdarkseer/CloudPulse)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-blue.svg)](https://kubernetes.io/)
+
+**CloudPulse** is an intelligent server resource forecasting and auto-scaling system that leverages machine learning to predict future CPU, memory, and network load patterns. It automatically scales container clusters (Docker/Kubernetes) based on predictive analytics, ensuring optimal resource utilization and preventing performance bottlenecks before they occur.
+
+## 🎯 What CloudPulse Does
+
+CloudPulse solves the critical challenge of **proactive resource management** in modern cloud environments by:
+
+- **🔮 Predictive Scaling**: Uses LSTM neural networks and Prophet time series models to forecast resource needs 5-15 minutes ahead
+- **📊 Real-time Monitoring**: Continuously collects system metrics (CPU, memory, network) from distributed agents
+- **🚨 Intelligent Alerting**: ML-driven anomaly detection and trend-based alerting
+- **🔄 Auto-scaling**: Dynamic scaling of Docker containers and Kubernetes pods based on predictions
+- **📈 Interactive Dashboard**: Modern web interface with real-time charts and control panels
+- **🤖 Multi-Model ML**: Combines LSTM and Prophet models for robust forecasting
+- **🔧 Multi-platform**: Seamlessly works with Docker Compose and Kubernetes
+
+### Key Benefits
+
+- **Prevents Downtime**: Scales resources before bottlenecks occur
+- **Cost Optimization**: Avoids over-provisioning while maintaining performance
+- **Intelligent Automation**: Reduces manual intervention in scaling decisions
+- **Real-time Insights**: Provides comprehensive visibility into system behavior
+
+## 🔄 How It Works
+
+CloudPulse operates through a sophisticated multi-layered architecture:
+
+### 1. **Data Collection Layer**
+- **Go Agents** deployed on each node collect real-time system metrics
+- Metrics include CPU usage, memory consumption, network I/O, and load averages
+- Data is collected every few seconds and sent to the central dashboard
+
+### 2. **Machine Learning Layer**
+- **Python ML Service** processes collected metrics using two complementary models:
+  - **LSTM Neural Network**: Captures complex temporal patterns and dependencies
+  - **Prophet Model**: Handles seasonality and trend analysis
+- Models generate forecasts 5-15 minutes into the future
+- Anomaly detection identifies unusual patterns in real-time
+
+### 3. **Decision Engine**
+- **Node.js Dashboard** acts as the central controller
+- Combines ML predictions with configurable scaling rules
+- Makes intelligent scaling decisions based on predicted resource needs
+- Supports both reactive and proactive scaling strategies
+
+### 4. **Execution Layer**
+- **Docker Compose**: For development and small-scale deployments
+- **Kubernetes**: For production environments with advanced orchestration
+- Automatic scaling of containers/pods based on predictions
+- Integration with existing monitoring and alerting systems
 
 ## 🚀 Features
 
@@ -24,12 +76,12 @@ CloudPulse is an intelligent server resource forecasting and auto-scaling system
                                  │
                     ┌─────────────┴─────────────┐
                     │     Node.js Dashboard     │
-                    │   (Central Controller)   │
+                    │   (Central Controller)    │
                     └─────────────┬─────────────┘
                                   │
                     ┌─────────────┴─────────────┐
                     │    Python ML Service      │
-                    │  (LSTM + Prophet Models) │
+                    │  (LSTM + Prophet Models)  │
                     └─────────────┬─────────────┘
                                   │
                     ┌─────────────┴─────────────┐
@@ -90,8 +142,8 @@ CloudPulse/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/cloudpulse.git
-cd cloudpulse
+git clone https://github.com/srdarkseer/CloudPulse.git
+cd CloudPulse
 
 # Start all services
 docker-compose -f docker/docker-compose.yml up -d
@@ -120,6 +172,23 @@ The CloudPulse dashboard provides:
 - **Alert Management**: Configurable alerts with acknowledgment
 - **Scaling Control**: Manual and automated scaling operations
 - **Node Status**: Health monitoring of all nodes
+
+### Service URLs (Docker Development)
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Dashboard** | [http://localhost:3000](http://localhost:3000) | Main web interface |
+| **Agent API** | [http://localhost:8080](http://localhost:8080) | Metrics collection |
+| **ML Service** | [http://localhost:5001](http://localhost:5001) | Forecasting API |
+| **Redis** | [http://localhost:6379](http://localhost:6379) | Caching layer |
+
+### API Endpoints
+
+- **Agent Health**: `GET http://localhost:8080/health`
+- **Agent Metrics**: `GET http://localhost:8080/metrics`
+- **ML Service Health**: `GET http://localhost:5001/health`
+- **ML Forecasts**: `GET http://localhost:5001/api/forecasts`
+- **Dashboard Health**: `GET http://localhost:3000/health`
 
 Access the dashboard at `http://localhost:3000` (Docker) or via LoadBalancer (Kubernetes).
 
@@ -294,6 +363,7 @@ cd dashboard && npm run dev
 
 ## 📄 License
 
+- **Documentation**: [Project Wiki](https://github.com/srdarkseer/CloudPulse/wiki)
 MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
@@ -302,13 +372,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [Grafana](https://grafana.com/) for visualization
 - [Prophet](https://facebook.github.io/prophet/) for time series forecasting
 - [TensorFlow](https://tensorflow.org/) for deep learning models
+\
 
-## 📞 Support
+## 👨‍💻 Author
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/cloudpulse/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/cloudpulse/discussions)
-- **Documentation**: [Wiki](https://github.com/your-org/cloudpulse/wiki)
-
----
-
-**CloudPulse** - Intelligent server resource forecasting and auto-scaling 🚀
+**Sushant R. Dangal** 
