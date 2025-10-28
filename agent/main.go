@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 	"github.com/sirupsen/logrus"
@@ -80,7 +81,7 @@ func (a *Agent) collectMetrics() (*MetricData, error) {
 		return nil, fmt.Errorf("failed to get CPU metrics: %w", err)
 	}
 
-	loadAvg, err := cpu.LoadAvg()
+	loadAvg, err := load.Avg()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get load average: %w", err)
 	}

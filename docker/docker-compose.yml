@@ -4,15 +4,17 @@ services:
   # CloudPulse Agent
   cloudpulse-agent:
     build:
-      context: ./agent
+      context: ../agent
       dockerfile: Dockerfile
     image: cloudpulse-agent:latest
     container_name: cloudpulse-agent
     ports:
       - "8080:8080"
+    env_file:
+      - ../.env
     environment:
-      - NODE_ID=node-1
-      - PORT=8080
+      - NODE_ID=${NODE_ID:-node-1}
+      - PORT=${AGENT_PORT:-8080}
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -24,16 +26,26 @@ services:
   # CloudPulse ML Service
   cloudpulse-ml:
     build:
-      context: ./ml-models
+      context: ../ml-models
       dockerfile: Dockerfile
     image: cloudpulse-ml:latest
     container_name: cloudpulse-ml
     ports:
-      - "5000:5000"
+      - "5001:5000"
+    env_file:
+      - ../.env
     environment:
-      - AGENT_ENDPOINTS=http://cloudpulse-agent:8080
-      - MODEL_SAVE_PATH=/app/models
-      - FORECAST_INTERVAL_MINUTES=5
+      - AGENT_ENDPOINTS=${AGENT_ENDPOINTS:-http://cloudpulse-agent:8080}
+      - MODEL_SAVE_PATH=${MODEL_SAVE_PATH:-/app/models}
+      - FORECAST_INTERVAL_MINUTES=${FORECAST_INTERVAL_MINUTES:-5}
+      - MODEL_RETRAIN_INTERVAL_HOURS=${MODEL_RETRAIN_INTERVAL_HOURS:-24}
+      - LSTM_SEQUENCE_LENGTH=${LSTM_SEQUENCE_LENGTH:-60}
+      - LSTM_HIDDEN_UNITS=${LSTM_HIDDEN_UNITS:-50}
+      - LSTM_DROPOUT_RATE=${LSTM_DROPOUT_RATE:-0.2}
+      - LSTM_EPOCHS=${LSTM_EPOCHS:-100}
+      - LSTM_BATCH_SIZE=${LSTM_BATCH_SIZE:-32}
+      - PROPHET_GROWTH_MODEL=${PROPHET_GROWTH_MODEL:-linear}
+      - PROPHET_SEASONALITY_MODE=${PROPHET_SEASONALITY_MODE:-multiplicative}
     volumes:
       - ml-models:/app/models
     restart: unless-stopped
@@ -45,18 +57,24 @@ services:
   # CloudPulse Dashboard
   cloudpulse-dashboard:
     build:
-      context: ./dashboard
+      context: ../dashboard
       dockerfile: Dockerfile
     image: cloudpulse-dashboard:latest
     container_name: cloudpulse-dashboard
     ports:
       - "3000:3000"
+    env_file:
+      - ../.env
     environment:
-      - PORT=3000
-      - AGENT_ENDPOINTS=http://cloudpulse-agent:8080
-      - ML_SERVICE_URL=http://cloudpulse-ml:5000
-      - CORS_ORIGIN=http://localhost:3000
-      - NODE_ENV=production
+      - PORT=${DASHBOARD_PORT:-3000}
+      - AGENT_ENDPOINTS=${AGENT_ENDPOINTS:-http://cloudpulse-agent:8080}
+      - ML_SERVICE_URL=${ML_SERVICE_URL:-http://cloudpulse-ml:5000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENABLE_FORECASTING=${ENABLE_FORECASTING:-true}
+      - ENABLE_ALERTING=${ENABLE_ALERTING:-true}
+      - ENABLE_AUTO_SCALING=${ENABLE_AUTO_SCALING:-true}
     volumes:
       - dashboard-logs:/app/logs
     restart: unless-stopped

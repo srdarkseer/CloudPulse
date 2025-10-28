@@ -3,8 +3,8 @@ module cloudpulse-agent
 go 1.21
 
 require (
-	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/gorilla/mux v1.8.1
+	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/sirupsen/logrus v1.9.3
 )
 

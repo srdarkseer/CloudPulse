@@ -1,0 +1,2 @@
+# This file ensures the models directory is tracked in Git
+# Actual model files (*.h5, *.pkl, etc.) are ignored by .gitignore

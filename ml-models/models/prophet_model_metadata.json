@@ -1,0 +1,58 @@
+{
+  "model_info": {
+    "name": "CloudPulse Prophet Forecaster",
+    "version": "1.0.0",
+    "description": "Prophet model for time series forecasting with seasonality",
+    "created_at": "2025-01-01T00:00:00Z",
+    "last_trained": "2025-01-01T00:00:00Z",
+    "training_data_points": 0,
+    "model_type": "Prophet",
+    "framework": "Facebook Prophet"
+  },
+  "model_config": {
+    "growth": "linear",
+    "seasonality_mode": "multiplicative",
+    "yearly_seasonality": true,
+    "weekly_seasonality": true,
+    "daily_seasonality": false,
+    "holidays": null,
+    "changepoint_prior_scale": 0.05,
+    "seasonality_prior_scale": 10.0,
+    "holidays_prior_scale": 10.0,
+    "seasonality_mode": "multiplicative"
+  },
+  "performance_metrics": {
+    "mse": 0.0,
+    "mae": 0.0,
+    "rmse": 0.0,
+    "mape": 0.0,
+    "r2_score": 0.0,
+    "training_time_seconds": 0,
+    "last_evaluation": "2025-01-01T00:00:00Z"
+  },
+  "forecasting": {
+    "forecast_horizon_minutes": 60,
+    "forecast_frequency_minutes": 5,
+    "confidence_intervals": [0.8, 0.95],
+    "seasonality_detected": false,
+    "trend_detected": false,
+    "changepoints": []
+  },
+  "seasonality": {
+    "yearly": {
+      "detected": false,
+      "strength": 0.0,
+      "period": 365.25
+    },
+    "weekly": {
+      "detected": false,
+      "strength": 0.0,
+      "period": 7.0
+    },
+    "daily": {
+      "detected": false,
+      "strength": 0.0,
+      "period": 1.0
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "model_info": {
+    "name": "CloudPulse LSTM Forecaster",
+    "version": "1.0.0",
+    "description": "LSTM neural network for CPU and memory usage forecasting",
+    "created_at": "2025-01-01T00:00:00Z",
+    "last_trained": "2025-01-01T00:00:00Z",
+    "training_data_points": 0,
+    "model_type": "LSTM",
+    "framework": "TensorFlow/Keras"
+  },
+  "model_config": {
+    "sequence_length": 60,
+    "hidden_units": 50,
+    "dropout_rate": 0.2,
+    "epochs": 100,
+    "batch_size": 32,
+    "validation_split": 0.2,
+    "features": ["cpu_usage", "memory_usage", "network_usage"],
+    "target": "forecast_values"
+  },
+  "performance_metrics": {
+    "mse": 0.0,
+    "mae": 0.0,
+    "rmse": 0.0,
+    "mape": 0.0,
+    "r2_score": 0.0,
+    "training_time_seconds": 0,
+    "last_evaluation": "2025-01-01T00:00:00Z"
+  },
+  "data_preprocessing": {
+    "scaler_type": "MinMaxScaler",
+    "feature_range": [0, 1],
+    "normalization_applied": true,
+    "missing_value_strategy": "forward_fill"
+  },
+  "forecasting": {
+    "forecast_horizon_minutes": 60,
+    "forecast_frequency_minutes": 5,
+    "confidence_intervals": [0.8, 0.95],
+    "seasonality_detected": false,
+    "trend_detected": false
+  }
+}
