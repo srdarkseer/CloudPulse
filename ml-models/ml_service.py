@@ -10,6 +10,8 @@ import schedule
 import time
 import os
 from dotenv import load_dotenv
+from flask import Flask, jsonify
+import threading
 
 load_dotenv()
 
@@ -25,9 +27,42 @@ class CloudPulseMLService:
         self.lstm_forecaster = LSTMForecaster()
         self.prophet_forecaster = ProphetForecaster()
         self.data_cache = {}
+        self.latest_forecasts = {}
+        self.latest_anomalies = []
         
         # Create models directory
         os.makedirs(model_save_path, exist_ok=True)
+        
+        # Initialize Flask app
+        self.app = Flask(__name__)
+        self.setup_routes()
+    
+    def setup_routes(self):
+        """Setup Flask API routes"""
+        
+        @self.app.route('/health', methods=['GET'])
+        def health():
+            return jsonify({
+                'status': 'healthy',
+                'timestamp': datetime.now().isoformat(),
+                'service': 'cloudpulse-ml'
+            })
+        
+        @self.app.route('/api/forecasts', methods=['GET'])
+        def get_forecasts():
+            return jsonify(self.latest_forecasts)
+        
+        @self.app.route('/api/anomalies', methods=['GET'])
+        def get_anomalies():
+            return jsonify(self.latest_anomalies)
+        
+        @self.app.route('/api/metrics', methods=['GET'])
+        def get_metrics():
+            if self.data_cache:
+                latest_df = list(self.data_cache.values())[-1]
+                # Convert DataFrame to JSON-serializable format
+                return jsonify(latest_df.to_dict('records') if hasattr(latest_df, 'to_dict') else {})
+            return jsonify({})
     
     def collect_metrics_from_agents(self):
         """Collect metrics from all registered agents"""
@@ -226,6 +261,10 @@ class CloudPulseMLService:
         # Detect anomalies
         anomalies = self.detect_anomalies(aggregated_df)
         
+        # Store latest results for API
+        self.latest_forecasts = combined_forecast
+        self.latest_anomalies = anomalies
+        
         # Log results
         logger.info(f"Forecasting cycle completed. Generated {len(forecasts)} model forecasts")
         if anomalies:
@@ -255,18 +294,37 @@ class CloudPulseMLService:
             schedule.run_pending()
             time.sleep(60)  # Check every minute
 
+def run_forecasting_thread(service, interval_minutes):
+    """Run forecasting in a separate thread"""
+    try:
+        service.start_scheduled_forecasting(interval_minutes)
+    except Exception as e:
+        logger.error(f"Forecasting thread error: {str(e)}")
+
 def main():
     """Main function to run the ML service"""
     # Configuration
     agent_endpoints = os.getenv('AGENT_ENDPOINTS', 'http://localhost:8080').split(',')
     model_save_path = os.getenv('MODEL_SAVE_PATH', './models')
     interval_minutes = int(os.getenv('FORECAST_INTERVAL_MINUTES', '5'))
+    port = int(os.getenv('ML_SERVICE_PORT', '5000'))
+    host = os.getenv('ML_SERVICE_HOST', '0.0.0.0')
     
-    # Create and start service
+    # Create service
     service = CloudPulseMLService(agent_endpoints, model_save_path)
     
+    # Start forecasting in a separate thread
+    forecasting_thread = threading.Thread(
+        target=run_forecasting_thread, 
+        args=(service, interval_minutes),
+        daemon=True
+    )
+    forecasting_thread.start()
+    
+    # Start Flask app
+    logger.info(f"Starting ML service on {host}:{port}")
     try:
-        service.start_scheduled_forecasting(interval_minutes)
+        service.app.run(host=host, port=port, debug=False)
     except KeyboardInterrupt:
         logger.info("Service stopped by user")
     except Exception as e:

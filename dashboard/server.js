@@ -62,8 +62,10 @@ class CloudPulseDashboard {
   }
   
   setupMiddleware() {
-    // Security middleware
-    this.app.use(helmet());
+    // Security middleware with CSP disabled for development
+    this.app.use(helmet({
+      contentSecurityPolicy: false,
+    }));
     this.app.use(cors());
     this.app.use(compression());
     
